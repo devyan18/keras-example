@@ -1,97 +1,73 @@
-# Regresión lineal usando el dataset de presión sanguínea vs. edad y usando la
-# librería Keras.
-# Tomado de: http://people.sc.fsu.edu/~jburkardt/datasets/regression/regression.html
-# 
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from keras.models import Sequential
+from keras.layers import Dense, Input
+from keras.optimizers import SGD
 
-from keras.api.models import Sequential
-from keras.api.layers import Dense
-from keras.api.optimizers import SGD
+# Lectura del archivo CSV
+datos = pd.read_csv('altura_peso.csv')
 
-#
-# Lectura y visualización del set de datos
-#
-
-datos = pd.read_csv('dataset.csv', sep=",", skiprows=32, usecols=[2,3])
-print(datos)
-
-# Al graficar los datos se observa una tendencia lineal
-datos.plot.scatter(x='Age', y='Systolic blood pressure')
-plt.xlabel('Edad (años)')
-plt.ylabel('Presión sistólica (mm de Mercurio)')
+# Visualización del set de datos
+datos.plot.scatter(x='Altura', y='Peso')
+plt.xlabel('Altura (cm)')
+plt.ylabel('Peso (kg)')
 plt.show()
 
-x = datos['Age'].values
-y = datos['Systolic blood pressure'].values
+# Preparación de los datos para la regresión lineal
+x = datos['Altura'].values
+y = datos['Peso'].values
 
-#
+# Normalizar los datos (opcional, pero recomendado)
+x = x / 100.0  # Normalizamos la altura a metros para una mejor escala
+y = y / 100.0  # Normalizamos el peso para mantener una escala similar
+
 # Construir el modelo en Keras
-#
+np.random.seed(2)  # Para reproducibilidad del entrenamiento
 
-# - Capa de entrada: 1 dato (cada dato "x" correspondiente a la edad)
-# - Capa de salida: 1 dato (cada dato "y" correspondiente a la regresión lineal)
-# - Activación: 'linear' (pues se está implementando la regresión lineal)
-
-np.random.seed(2)			# Para reproducibilidad del entrenamiento
-
-input_dim = 1 # entrada es un valor real que corresponde a la edad
-output_dim = 1 # output es un valor real que corresponde a la presión sanguínea
 modelo = Sequential()
-modelo.add(Dense(output_dim, input_dim=input_dim, activation='linear'))
+modelo.add(Input(shape=(1,)))  # Usamos un Input layer explícito
+modelo.add(Dense(1, activation='linear'))
 
-# Definición del método de optimización (gradiente descendiente), con una
-# tasa de aprendizaje de 0.0004 y una pérdida igual al error cuadrático
-# medio
-
-sgd = SGD(lr=0.0004)
+# Definición del método de optimización (gradiente descendiente)
+sgd = SGD(learning_rate=0.0004)
 modelo.compile(loss='mse', optimizer=sgd)
 
 # Imprimir en pantalla la información del modelo
 modelo.summary()
 
-#
 # Entrenamiento: realizar la regresión lineal
-#
+num_epochs = 4000  # Número de iteraciones para el entrenamiento
+batch_size = x.shape[0]  # Todos los datos se usarán en cada iteración
+history = modelo.fit(x, y, epochs=num_epochs, batch_size=batch_size, verbose=1)
 
-# 40000 iteraciones y todos los datos de entrenamiento (29) se usarán en cada
-# iteración (batch_size = 29)
-
-num_epochs = 40000 # número de iteraciones para el entrenamiento
-batch_size = x.shape[0] # shape significa forma, en este caso es un vector de 29 elementos
-history = modelo.fit(x, y, epochs=num_epochs, batch_size=batch_size, verbose=0) # fit es el método que realiza el entrenamiento
-
-#
-# Visualizar resultados del entrenamiento
-#
-
-# Imprimir los coeficientes "w" y "b"
-capas = modelo.layers[0]
-w, b = capas.get_weights()
-print(f'Parámetros: w = {w[0][0]:.1f}, b = {b[0]:.1f}') # mostramos los valores de w y b con un decimal
-
-# (se utiliza float:.nf tal que n es el número de decimales que se desea mostrar)
-
-# Graficar el error vs epochs y el resultado de la regresión
-# superpuesto a los datos originales
-plt.subplot(1,2,1)
+# Visualizar el proceso de entrenamiento
+plt.figure(figsize=(12, 6))
 plt.plot(history.history['loss'])
-plt.xlabel('epoch')
-plt.ylabel('ECM')
-plt.title('ECM vs. epochs')
+plt.xlabel('Época')
+plt.ylabel('Pérdida (MSE)')
+plt.title('Pérdida durante el entrenamiento')
+plt.show()
 
+print("Entrenamiento finalizado")
+# print(modelo.layers)
+# Imprimir los coeficientes "w" y "b"
+capas = modelo.layers[0]  # Cambia el índice si cambian las capas
+w, b = capas.get_weights()
+print(f'Parámetros: w = {w[0][0]:.4f}, b = {b[0]:.4f}')  # Mostrar valores de w y b con 4 decimales
+
+# Graficar los datos originales y la regresión
 y_regr = modelo.predict(x)
-plt.subplot(1, 2, 2)
-plt.scatter(x,y)
-plt.plot(x,y_regr,'r')
-plt.xlabel('x')
-plt.ylabel('y')
+plt.figure(figsize=(12, 6))
+plt.scatter(x, y, label='Datos originales')
+plt.plot(x, y_regr, 'r', label='Regresión lineal')
+plt.xlabel('Altura (m)')
+plt.ylabel('Peso (kg)')
 plt.title('Datos originales y regresión lineal')
+plt.legend()
 plt.show()
 
 # Predicción
-x_pred = np.array([90])
+x_pred = np.array([1.80])  # Predicción para una altura de 1.80 metros
 y_pred = modelo.predict(x_pred)
-print("La presión sanguínea será de {:.1f} mm-Hg".format(y_pred[0][0]), " para una persona de {} años".format(x_pred[0]))
+print("El peso será de {:.1f} kg para una altura de {} m".format(y_pred[0][0] * 100, x_pred[0]))
